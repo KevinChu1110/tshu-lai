@@ -5,7 +5,8 @@
 | plugin | 狀態 | 說明 |
 | --- | --- | --- |
 | [weather-tw](weather-tw/) | 可用 | 阿嬤家天氣，Open-Meteo |
-| [examples/tv-taiwan](examples/tv-taiwan/) | 只有 manifest | 節目表與八點檔劇情，等社群接資料來源 |
+| [calendar-tw](calendar-tw/) | 可用 | 農曆節日、節氣、初一十五 |
+| [tv-taiwan](tv-taiwan/) | 可用 | 阿嬤的節目表（家人填），開播時切到看電視 scene |
 
 ## 約定的 tool
 

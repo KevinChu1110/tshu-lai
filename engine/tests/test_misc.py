@@ -51,9 +51,9 @@ def test_simulator_deterministic_and_uses_trips(tmp_path: Path):
 
 
 def test_plugin_manifests_load():
-    plugins = load_manifests([REPO / "plugins", REPO / "plugins" / "examples"])
+    plugins = load_manifests([REPO / "plugins"])
     names = {p.name for p in plugins}
-    assert {"weather-tw", "tv-taiwan"} <= names
+    assert {"weather-tw", "tv-taiwan", "calendar-tw"} <= names
 
 
 class _Req:

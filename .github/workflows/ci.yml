@@ -1,0 +1,33 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: engine
+        working-directory: engine
+        run: uv sync --extra dev --extra drive --extra plugins && uv run pytest -q
+      - name: capture
+        working-directory: capture
+        run: uv sync --extra dev && uv run pytest -q
+
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: app
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+          flutter build web --base-href /app/

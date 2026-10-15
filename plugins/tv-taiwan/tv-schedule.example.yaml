@@ -1,0 +1,13 @@
+# 複製到 data/plugins/tv-schedule.yaml，填阿嬤真的在看的節目。
+# weekdays：1=禮拜一 … 7=禮拜日
+shows:
+  - name: 八點檔
+    channel: 民視
+    weekdays: [1, 2, 3, 4, 5]
+    start: "20:00"
+    end: "22:00"
+  - name: 歌唱節目
+    channel: 三立台灣台
+    weekdays: [6]
+    start: "21:00"
+    end: "23:00"

@@ -46,6 +46,8 @@ dependencies:
   shared_preferences: ^2.5.6
   flutter_local_notifications: ^22.3.2
   path_provider: ^2.1.6
+  sensors_plus: ^7.1.1
+  google_mlkit_selfie_segmentation: ^0.12.1
 
 dev_dependencies:
   flutter_test:

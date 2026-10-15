@@ -8,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../engine_client.dart';
 import '../io_helper.dart';
+import '../segmentation/people_layer.dart';
+import '../segmentation/segmentation.dart';
 
 /// 阿嬤在畫面上的位置，用比例存，預覽和拍好的照片共用。
 class _Placement {
@@ -45,6 +47,8 @@ class _PhotoScreenState extends State<PhotoScreen> {
   Uint8List? _good;
   bool _busy = false;
   double _scaleStart = 1;
+  ui.Image? _peopleMask;
+  bool _behind = false; // 阿嬤徛佇大家後壁
 
   @override
   void initState() {
@@ -93,6 +97,16 @@ class _PhotoScreenState extends State<PhotoScreen> {
     final f = await c.takePicture();
     final bytes = await f.readAsBytes();
     setState(() => _photo = bytes);
+    _segment(bytes);
+  }
+
+  Future<void> _segment(Uint8List bytes) async {
+    _peopleMask = null;
+    if (!PeopleMask.supported) return;
+    try {
+      final m = await PeopleMask.of(bytes);
+      if (mounted && identical(bytes, _photo)) setState(() => _peopleMask = m);
+    } catch (_) {}
   }
 
   Future<void> _pick() async {
@@ -103,6 +117,7 @@ class _PhotoScreenState extends State<PhotoScreen> {
       _photo = bytes;
       _good = null;
     });
+    _segment(bytes);
   }
 
   Future<Uint8List> _renderQuick() async {
@@ -177,6 +192,8 @@ class _PhotoScreenState extends State<PhotoScreen> {
           builder: (_, box) => Stack(fit: StackFit.expand, children: [
             ColoredBox(color: Colors.black, child: base),
             _overlay(box),
+            if (_behind && _photo != null && _peopleMask != null)
+              IgnorePointer(child: PeopleLayer(photo: _photo!, mask: _peopleMask!)),
             const Positioned(
               right: 8,
               bottom: 6,
@@ -210,6 +227,13 @@ class _PhotoScreenState extends State<PhotoScreen> {
           selected: {_place.position},
           onSelectionChanged: _pose == null ? null : (s) => setState(() => _place.preset(s.first, _pose!)),
         ),
+        if (_peopleMask != null)
+          SwitchListTile(
+            title: const Text('阿嬤徛佇大家後壁'),
+            subtitle: const Text('照片裡的人會擋在阿嬤前面'),
+            value: _behind,
+            onChanged: (v) => setState(() => _behind = v),
+          ),
         if (_poses.length > 1)
           SizedBox(
             height: 88,

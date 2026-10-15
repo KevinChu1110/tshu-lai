@@ -63,7 +63,7 @@ class Engine:
         if not persona_path.exists():
             persona_path = REPO / "spec" / "examples" / "persona.example.yaml"
         self.persona = load_persona(persona_path)
-        self.memory = MemoryStore(d / "persona.db")
+        self.memory = MemoryStore(d / "persona.db", vectors=cfg.vector_memory and cfg.llm != "echo")
         self.scenes = SceneMachine(load_scenes())
         self.llm = get_llm(cfg.llm)
         self.simulator = LifeSimulator(self.persona, self.memory)
@@ -72,13 +72,18 @@ class Engine:
         for root in cfg.media_roots[1:]:
             ensure_local_layout(root)
         self.tts = get_tts(cfg.tts, url=cfg.tts_url, ref_audio=self._media(cfg.tts_ref) if cfg.tts_ref else None,
-                           ref_text=cfg.tts_ref_text, translator_url=cfg.translator_url, cache_dir=d / "tts_cache")
+                           ref_text=cfg.tts_ref_text, translator_url=cfg.translator_url, cache_dir=d / "tts_cache",
+                           persona_id=self.persona["id"])
         self._stt = None
         self.tts_store: dict[str, bytes] = {}
         self.frame_key = self._frame_key()
         home = self.persona.get("home") or {}
         env = {"TSHULAI_HOME_LAT": str(home["lat"]), "TSHULAI_HOME_LNG": str(home["lng"])} if "lat" in home else {}
+        tv = d / "plugins" / "tv-schedule.yaml"
+        if tv.exists():
+            env["TSHULAI_TV_SCHEDULE"] = str(tv)
         self.plugins = PluginHost(load_manifests([REPO / "plugins", d / "plugins"], cfg.plugins or []), env)
+        self.connections: dict[WebSocket, dict] = {}   # sock -> {"who": Member, "voice": bool}
 
     def _frame_key(self) -> str:
         p = self.cfg.data_dir / "frame_key.txt"
@@ -123,7 +128,14 @@ class Engine:
         for t in topics:
             self.memory.add_life_event(date.today().isoformat(), t, "plugin")
 
-    def system_prompt(self, user_text: str, member: Member) -> str:
+    def quiet_now(self) -> bool:
+        from datetime import datetime
+
+        start, end = self.cfg.wellbeing.quiet_hours
+        h = datetime.now().hour
+        return (h >= start or h < end) if start > end else (start <= h < end)
+
+    def system_prompt(self, user_text: str, member: Member, remind_rest: bool = False) -> str:
         trips = self.memory.recent_trips(3)
         memories = self.memory.search_stories(user_text) + self.memory.recent_facts(5)
         memories += [f"{t['title']}，{t['start']}" for t in trips]
@@ -133,6 +145,8 @@ class Engine:
             today_events=self.memory.todays_events(date.today().isoformat()),
             memories=memories,
             user_name=member.called or self.cfg.user_name,
+            farewell=self.cfg.wellbeing.farewell,
+            remind_rest=remind_rest,
         )
 
     def speak(self, text: str) -> str | None:
@@ -171,6 +185,36 @@ async def _drive_loop(e: Engine) -> None:
         await asyncio.sleep(e.cfg.drive.poll_seconds)
 
 
+# plugin 事件 → 阿嬤主動開口的提示（括號是給 LLM 的舞台指示，不會念出來）
+PROACTIVE = {
+    "weather.rain_soon": "（等一下會落雨，提醒對方出門愛紮雨傘。）",
+    "festival.today": "（今天是節日，照你的習慣跟對方講今天要做什麼。）",
+    "tv.program_started": "（你常看的節目開始了，叫對方一起來看。）",
+}
+
+
+async def handle_event(e: Engine, name: str) -> None:
+    """plugin 或 app 來的事件：換 scene，必要時對所有連線中的家人主動開口。"""
+    new = e.scenes.on_event(name)
+    for sock, c in list(e.connections.items()):
+        with suppress(Exception):
+            if new:
+                await sock.send_json({"type": "scene", "id": new.id, "name": new.name})
+            if name in PROACTIVE and not e.cfg.wellbeing.farewell and not e.quiet_now():
+                await _reply(sock, c["who"], PROACTIVE[name], c["voice"], log_user=False)
+
+
+async def _plugin_loop(e: Engine) -> None:
+    while True:
+        await asyncio.sleep(60)
+        try:
+            for name in await e.plugins.poll_events():
+                if e.memory.first_time_today(date.today().isoformat(), name):
+                    await handle_event(e, name)
+        except Exception as ex:
+            log.warning("plugin 事件輪詢失敗：%s", ex)
+
+
 async def _daily_loop(e: Engine) -> None:
     last = None
     while True:
@@ -191,6 +235,7 @@ async def lifespan(_: FastAPI):
         tasks.append(asyncio.create_task(_drive_loop(engine)))
     if engine.plugins.plugins:
         await engine.plugins.start()
+        tasks.append(asyncio.create_task(_plugin_loop(engine)))
     log.info("阿嬤看板：/frame?key=%s", engine.frame_key)
     yield
     for t in tasks:
@@ -249,6 +294,16 @@ def post_event(body: dict, who: Member = Depends(member)):
         engine.memory.add_fact(f"{who.called or '孫仔'}{date.today().strftime('%-m月%-d日')}有轉來厝")
     engine.scenes.on_event(name)
     return {"scene": engine.scenes.current.id}
+
+
+@app.get("/wellbeing")
+def wellbeing(who: Member = Depends(member)):
+    """今天跟阿嬤講了多久。app 設定頁顯示，讓家人自己看得到。"""
+    assert engine
+    row = engine.memory.conn.execute("SELECT seconds FROM usage WHERE day=? AND member=?",
+                                     (date.today().isoformat(), who.email)).fetchone()
+    return {"minutes_today": round((row[0] if row else 0) / 60), "daily_minutes": engine.cfg.wellbeing.daily_minutes,
+            "farewell": engine.cfg.wellbeing.farewell}
 
 
 @app.get("/trips")
@@ -375,6 +430,10 @@ async def ws(sock: WebSocket, token: str | None = Query(None)):
         return
     await sock.accept()
     voice = False
+    conn = engine.connections[sock] = {"who": who, "voice": False}
+    import time
+
+    opened = time.monotonic()
     cur = engine.scenes.current
     await sock.send_json({"type": "hello", "member": who.called, "persona": engine.persona.display_name,
                           "scene": {"id": cur.id, "name": cur.name}})
@@ -385,7 +444,7 @@ async def ws(sock: WebSocket, token: str | None = Query(None)):
             msg = await sock.receive_json()
             kind = msg.get("type")
             if kind == "voice":
-                voice = bool(msg.get("tts"))
+                voice = conn["voice"] = bool(msg.get("tts"))
             elif kind == "event":
                 new = engine.scenes.on_event(msg["name"])
                 if new:
@@ -396,6 +455,9 @@ async def ws(sock: WebSocket, token: str | None = Query(None)):
                 await _reply(sock, who, msg["text"], voice)
     except WebSocketDisconnect:
         pass
+    finally:
+        engine.connections.pop(sock, None)
+        engine.memory.add_usage(date.today().isoformat(), who.email, time.monotonic() - opened)
 
 
 async def _reply(sock: WebSocket, who: Member, text: str, voice: bool, log_user: bool = True) -> None:
@@ -411,7 +473,16 @@ async def _reply(sock: WebSocket, who: Member, text: str, voice: bool, log_user:
             audio = await asyncio.to_thread(engine.speak, s) if voice else None
             await sock.send_json({"type": "sentence", "text": s, "audio": audio})
 
-    async for delta in engine.llm.stream(engine.system_prompt(text, who), history, text):
+    import time
+
+    conn = engine.connections.get(sock)
+    remind = False
+    if conn is not None and log_user:
+        # 把這次連線到現在的時間先算進去，判斷今天是不是講太久
+        engine.memory.add_usage(date.today().isoformat(), who.email, 0)
+        remind = engine.memory.should_remind(date.today().isoformat(), who.email,
+                                             engine.cfg.wellbeing.daily_minutes * 60)
+    async for delta in engine.llm.stream(engine.system_prompt(text, who, remind_rest=remind), history, text):
         reply.append(delta)
         await sock.send_json({"type": "text", "delta": delta})
         await send_sentences(splitter.feed(delta))

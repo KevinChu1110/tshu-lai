@@ -30,4 +30,12 @@ livetalking_url: ""              # 即時嘴型（需要 NVIDIA GPU）
 comfy_url: ""                    # ComfyUI：合照好版、待機影片
 
 plugins:
-  enabled: [weather-tw]
+  enabled: [weather-tw, calendar-tw, tv-taiwan]   # tv-taiwan 的節目表放 data/plugins/tv-schedule.yaml
+
+vector_memory: true              # 需要 uv sync --extra memory
+
+# 使用節制與道別
+wellbeing:
+  daily_minutes: 90              # 一天講超過這麼久，阿嬤會叫你去休息（一天一次）
+  quiet_hours: [23, 7]           # 這段時間她不主動開口
+  farewell: false                # 道別模式：她不再主動找你，對話慢慢收尾

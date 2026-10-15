@@ -1,0 +1,17 @@
+name: calendar-tw
+version: 0.1.0
+description: 農曆節日與節氣（過年、天公生、媽祖生、中元普渡、中秋、尾牙、初一十五拜拜、清明、冬至）。阿嬤一定記得的日子。
+kind: [knowledge, trigger]
+languages: [nan-TW, zh-TW]
+server:
+  command: uv
+  args: [run, --with, "mcp>=2.3", --with, "lunar_python>=1.4", python, server.py]
+provides:
+  triggers:
+    - event: festival.today
+      description: 今天是節日，早上八點後觸發一次
+  tools: [topics, poll_events, today]
+  topics: [節日, 拜拜, 節氣]
+weights_license: none
+commercial_ok: true
+permissions: []

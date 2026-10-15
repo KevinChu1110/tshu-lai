@@ -1,0 +1,18 @@
+name: tv-taiwan
+version: 0.2.0
+description: 阿嬤固定在看的節目。家人填節目表（data/plugins/tv-schedule.yaml），時間到她會說「八點檔欲開始矣」，看電視 scene 會自動切換。
+kind: [knowledge, trigger]
+languages: [nan-TW, zh-TW]
+server:
+  command: uv
+  args: [run, --with, "mcp>=2.3", --with, "pyyaml>=6", python, server.py]
+provides:
+  triggers:
+    - event: tv.program_started
+      description: 她常看的節目開始了
+    - event: tv.program_ended
+  tools: [topics, poll_events, schedule]
+  topics: [八點檔, 歌唱節目]
+weights_license: none
+commercial_ok: true
+permissions: []

@@ -102,7 +102,7 @@ class GPTSoVITS(TTS):
         }).encode()
         req = urllib.request.Request(f"{self.url}/tts", data=body, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=60) as r:
-            return watermark(r.read())
+            return watermark(r.read())  # 原版 GPT-SoVITS
 
 
 class TaigiTranslator:
@@ -137,12 +137,12 @@ class TaigiSoVITS(TTS):
     """KaedeTai/GPT-SoVITS-TW fork（MIT）的 webui 伺服器（`python -m tw_inference.webui`，預設 127.0.0.1:5557）。
     吃 POJ／台羅，不吃漢字；內建連讀變調。不支援串流，所以搭配 PhraseCache。"""
 
-    media_type = "audio/mpeg"
-
-    def __init__(self, url: str, ref_audio: Path | None, translator: TaigiTranslator | None = None):
+    def __init__(self, url: str, ref_audio: Path | None, translator: TaigiTranslator | None = None, persona_id: str = ""):
         self.url = url.rstrip("/")
         self.ref_audio = ref_audio
         self.translator = translator
+        self.persona_id = persona_id
+        self.media_type = "audio/mpeg" if not _has_audioseal() else "audio/wav"
 
     def synth(self, text: str) -> bytes:
         import json
@@ -157,7 +157,13 @@ class TaigiSoVITS(TTS):
         with urllib.request.urlopen(req, timeout=120) as r:
             res = json.loads(r.read())
         with urllib.request.urlopen(f"{self.url}{res['url']}", timeout=60) as r:
-            return r.read()
+            return watermark(r.read(), self.persona_id)
+
+
+def _has_audioseal() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("audioseal") is not None
 
 
 class PhraseCache(TTS):
@@ -188,16 +194,26 @@ class PhraseCache(TTS):
         return sum(1 for t in phrases if not self._path(t).exists() and self.synth(t))
 
 
-def watermark(wav: bytes) -> bytes:
-    """AudioSeal 浮水印。沒裝就原樣回傳並記一次警告（使用規範要求正式使用時必須開）。"""
+def to_wav(audio: bytes) -> bytes:
+    """任何格式轉 wav（用 ffmpeg，保留原取樣率）。已經是 wav 就原樣回傳。"""
+    if audio[:4] == b"RIFF":
+        return audio
+    import subprocess
+
+    return subprocess.run(["ffmpeg", "-loglevel", "error", "-i", "pipe:0", "-f", "wav", "pipe:1"],
+                          input=audio, capture_output=True, check=True).stdout
+
+
+def watermark(audio: bytes, persona_id: str = "") -> bytes:
+    """AudioSeal 浮水印，回傳 wav。沒裝就原樣回傳並記一次警告（使用規範要求正式使用時必須開）。"""
     try:
         from .watermark import embed
     except ImportError:
         if not getattr(watermark, "_warned", False):
             log.warning("沒裝 audioseal，生成語音沒有浮水印：uv sync --extra voice")
             watermark._warned = True  # type: ignore[attr-defined]
-        return wav
-    return embed(wav)
+        return audio
+    return embed(to_wav(audio), persona_id)
 
 
 def get_stt(name: str) -> STT:
@@ -209,10 +225,10 @@ def get_stt(name: str) -> STT:
 
 
 def get_tts(name: str, *, url: str = "", ref_audio: Path | None = None, ref_text: str = "",
-            translator_url: str = "", cache_dir: Path | None = None) -> TTS:
+            translator_url: str = "", cache_dir: Path | None = None, persona_id: str = "") -> TTS:
     if name == "taigi":
         tr = TaigiTranslator(translator_url) if translator_url else None
-        inner = TaigiSoVITS(url or "http://127.0.0.1:5557", ref_audio, tr)
+        inner = TaigiSoVITS(url or "http://127.0.0.1:5557", ref_audio, tr, persona_id)
         return PhraseCache(inner, cache_dir) if cache_dir else inner
     if name == "gptsovits":
         if not ref_audio:

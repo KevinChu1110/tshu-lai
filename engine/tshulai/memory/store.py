@@ -56,6 +56,13 @@ CREATE TABLE IF NOT EXISTS facts (
   text TEXT NOT NULL,              -- 對話中學到的新事實，如「冠融最近工作足忝」
   expires TEXT
 );
+CREATE TABLE IF NOT EXISTS usage (
+  day TEXT NOT NULL, member TEXT NOT NULL, seconds REAL DEFAULT 0, reminded INTEGER DEFAULT 0,
+  PRIMARY KEY (day, member)
+);
+CREATE TABLE IF NOT EXISTS handled_events (
+  day TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (day, name)
+);
 CREATE TABLE IF NOT EXISTS trips (
   key TEXT PRIMARY KEY,            -- who:start
   who TEXT, start TEXT, "end" TEXT,
@@ -76,11 +83,16 @@ def _now() -> str:
 
 
 class MemoryStore:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, embedder=None, vectors: bool = False):
         path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(path, check_same_thread=False)  # 背景同步執行緒也會寫；寫入都很短，用 SQLite 自己的鎖
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        self.vec = None
+        if vectors or embedder is not None:
+            from .vectors import try_vector_index
+
+            self.vec = try_vector_index(self.conn, embedder)
 
     # --- stories -------------------------------------------------------
     def import_stories_jsonl(self, jsonl: Path) -> int:
@@ -100,6 +112,17 @@ class MemoryStore:
         return n
 
     def search_stories(self, query: str, k: int = 5) -> list[str]:
+        """有向量索引就用語意檢索（「阿公以前做啥」找得到「伊少年時咧做木工」），否則關鍵字。"""
+        hits = self.keyword_search(query, k)          # 精確命中（人名、地名）優先
+        if self.vec is not None and len(hits) < k:
+            try:
+                self.vec.index_missing()
+                hits += [h for h in self.vec.search(query, k) if h not in hits]
+            except Exception:
+                pass
+        return hits[:k]
+
+    def keyword_search(self, query: str, k: int = 5) -> list[str]:
         """關鍵字檢索。之後換成向量檢索，介面不變。
 
         FTS5 預設 tokenizer 不切中文，所以用 trigram；trigram 查詢要三個字以上，
@@ -200,3 +223,26 @@ class MemoryStore:
     def mark_played(self, msg_id: int) -> None:
         with self.conn:
             self.conn.execute("UPDATE future_messages SET played_at = ? WHERE id = ?", (_now(), msg_id))
+
+    # --- 使用節制 -------------------------------------------------------
+    def add_usage(self, day: str, member: str, seconds: float) -> float:
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO usage(day, member, seconds) VALUES (?,?,?) "
+                "ON CONFLICT(day, member) DO UPDATE SET seconds = seconds + excluded.seconds", (day, member, seconds))
+        return self.conn.execute("SELECT seconds FROM usage WHERE day=? AND member=?", (day, member)).fetchone()[0]
+
+    def should_remind(self, day: str, member: str, limit_seconds: float) -> bool:
+        """超過上限且今天還沒提醒過 → True，並記下已提醒。"""
+        row = self.conn.execute("SELECT seconds, reminded FROM usage WHERE day=? AND member=?", (day, member)).fetchone()
+        if not row or row["seconds"] < limit_seconds or row["reminded"]:
+            return False
+        with self.conn:
+            self.conn.execute("UPDATE usage SET reminded = 1 WHERE day=? AND member=?", (day, member))
+        return True
+
+    def first_time_today(self, day: str, event: str) -> bool:
+        """同一天同一事件只處理一次（plugin 每分鐘輪詢會重複回報）。"""
+        with self.conn:
+            cur = self.conn.execute("INSERT OR IGNORE INTO handled_events(day, name) VALUES (?, ?)", (day, event))
+        return cur.rowcount == 1

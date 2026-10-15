@@ -57,9 +57,9 @@ Client 不跑大模型，只感測、呈現、快取。
 | 觸發 | 感測 | 範例 |
 | --- | --- | --- |
 | 回到家 | geofence 半徑 100m | 「轉來矣？食飽未？」 |
-| 坐下 | 加速度計靜止 2 分鐘 + 在家（待做） | 進入聊天 |
-| 看電視 | tv plugin 事件、或使用者說 | 問劇情 |
-| 時間 | 節日、生日、忌日（人格卡 `dates`） | 「今仔日是你阿公的忌日」 |
+| 坐下 | 進門後手機靜止 2 分鐘（sensors_plus） | 進入坐下聊天 |
+| 看電視 | tv-taiwan 節目表開播 | 「八點檔開始矣，緊來看」 |
+| 時間 | 農曆節日（calendar-tw）、生日、忌日（人格卡 `dates`） | 「後日就是重陽矣」 |
 | 天氣 | weather-tw plugin | 「欲落雨矣，紮雨傘」 |
 | 手機卡住 | 生活模擬器 | 「這个貼圖按怎傳？」 |
 | 拍照 | 打開合照分頁 | 「我坐中央好無？」 |
@@ -69,7 +69,7 @@ Client 不跑大模型，只感測、呈現、快取。
 ### 對話腦
 
 System prompt = 人格卡 + 當前 scene + 今天的生活事件 + 記憶（故事檢索、最近學到的事實、家人最近的旅行）。
-禁忌話題放最後、語氣最強。被問是不是 AI 要誠實。記憶檢索目前是 SQLite FTS5 trigram，之後換 sqlite-vec 向量，介面不變。
+禁忌話題放最後、語氣最強。被問是不是 AI 要誠實。記憶檢索：關鍵字（FTS5 trigram）精確命中優先，再補 sqlite-vec 語意檢索（fastembed 多語模型，本機跑）。
 
 LLM 可插拔：`echo`（測試）、`claude`（預設 `claude-opus-5-5`，effort low 壓延遲，system prompt 開 prompt cache）。
 
@@ -108,7 +108,7 @@ LLM 可插拔：`echo`（測試）、`claude`（預設 `claude-opus-5-5`，effor
 | 項目 | 預設 | 不要用（非商用） |
 | --- | --- | --- |
 | 姿勢庫去背 | BiRefNet（MIT） | RMBG-2.0 |
-| 手機預覽分割 | google_mlkit_selfie_segmentation（待接，用於遮擋） | |
+| 手機遮擋 | google_mlkit_selfie_segmentation，阿嬤可以站在大家後面 | |
 | 合照好版 | Qwen-Image-Edit-2511 | FLUX.1 Kontext dev、FLUX.2 dev、InsertAnything |
 | 嘴型 | MuseTalk 1.5 / Ditto | Sonic、LivePortrait（InsightFace 權重） |
 | 標記 | EXIF + c2pa-python（合照 compositeWithTrainedAlgorithmicMedia） | |
@@ -131,6 +131,11 @@ LLM 可插拔：`echo`（測試）、`claude`（預設 `claude-opus-5-5`，effor
 ### 記憶
 
 SQLite 單檔 `data/persona.db`：`people`、`stories`（FTS5 trigram）、`media`、`life_events`、`conversations`、`facts`、`trips`、`future_messages`。
+
+### 主動開口與使用節制
+
+plugin 事件（要下雨、節日、節目開播）→ 換 scene，對連線中的家人主動開口。安靜時段（預設 23 點到 7 點）不開口。
+一天講超過 `daily_minutes`（預設 90 分鐘），她會照個性叫你去休息，一天一次。道別模式下她不主動找你，對話慢慢收尾。
 
 ## 倫理與保護
 

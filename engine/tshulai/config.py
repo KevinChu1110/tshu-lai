@@ -30,6 +30,14 @@ class AuthConfig:
 
 
 @dataclass
+class WellbeingConfig:
+    """使用節制與道別。數位亡者對生者的影響好壞參半，預設保守。"""
+    daily_minutes: int = 90             # 一天跟阿嬤講超過這麼久，她會叫你去休息
+    quiet_hours: list[int] = field(default_factory=lambda: [23, 7])  # 這段時間她不主動開口
+    farewell: bool = False              # 道別模式：她不再主動找你，對話慢慢收尾
+
+
+@dataclass
 class Config:
     data_dir: Path
     llm: str = "echo"
@@ -45,6 +53,8 @@ class Config:
     drive: DriveConfig = field(default_factory=DriveConfig)
     auth: AuthConfig = field(default_factory=AuthConfig)
     plugins: list[str] = field(default_factory=list)
+    vector_memory: bool = True          # 有裝 --extra memory 才會生效
+    wellbeing: WellbeingConfig = field(default_factory=WellbeingConfig)
     tts_ref: str = ""                   # 參考音檔，相對於素材根目錄
     tts_ref_text: str = ""
 
@@ -76,6 +86,8 @@ def load_config(data_dir: Path | None = None) -> Config:
         drive=DriveConfig(**(raw.get("drive") or {})),
         auth=AuthConfig(**(raw.get("auth") or {})),
         plugins=(raw.get("plugins") or {}).get("enabled", []),
+        vector_memory=raw.get("vector_memory", True),
+        wellbeing=WellbeingConfig(**(raw.get("wellbeing") or {})),
         tts_ref=raw.get("tts_ref", ""),
         translator_url=raw.get("translator_url", ""),
         livetalking_url=raw.get("livetalking_url", ""),

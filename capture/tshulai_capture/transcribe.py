@@ -25,7 +25,7 @@ def transcribe(wav: Path, out_json: Path, *, language: str | None = None) -> lis
     except ImportError as e:  # pragma: no cover
         raise SystemExit("需要 faster-whisper：uv sync --extra asr") from e
 
-    model_name = os.environ.get("TSHULAI_ASR_MODEL", "large-v3")
+    model_name = os.environ.get("TSHULAI_ASR_MODEL", "weemed/Breeze-ASR-26-ct2")
     model = WhisperModel(model_name, device="auto", compute_type="auto")
     segments, info = model.transcribe(
         str(wav),

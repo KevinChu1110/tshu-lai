@@ -18,9 +18,10 @@ dependencies = [
 claude = ["anthropic>=1.0"]
 drive = ["google-api-python-client>=2.150", "google-auth>=2.35", "requests>=2.32"]
 plugins = ["mcp>=2.3"]
+memory = ["sqlite-vec>=0.1.9", "fastembed>=0.5"]
 voice = ["faster-whisper>=1.1", "audioseal>=0.2", "torchaudio>=2.4"]
 vision = ["torch>=2.4", "torchvision>=0.19", "transformers>=4.45", "timm>=1.0", "kornia>=0.7", "einops>=0.8", "c2pa-python>=0.10", "cryptography>=43"]
-dev = ["pytest>=8", "httpx2>=0.1"]
+dev = ["pytest>=8", "httpx2>=0.1", "lunar_python>=1.4", "pyyaml>=6", "sqlite-vec>=0.1.9"]
 
 [project.scripts]
 tshulai-engine = "tshulai.cli:main"

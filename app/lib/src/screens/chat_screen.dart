@@ -9,6 +9,7 @@ import 'package:record/record.dart';
 import '../engine_client.dart';
 import '../io_helper.dart';
 import '../settings.dart';
+import '../sit_detector.dart';
 
 class _Msg {
   _Msg(this.fromMe, this.text, {this.audioOne, this.future = false});
@@ -41,6 +42,7 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _sceneName;
   bool _recording = false;
   bool _playing = false;
+  late final _sit = SitDetector(onSit: () => _conn?.event('motion.sit_down'));
 
   @override
   void initState() {
@@ -83,6 +85,12 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       case 'scene':
         setState(() => _sceneName = m['name'] as String);
+        // 進門之後才開始看你有沒有坐下來；換到別的情境就停
+        if (m['id'] == 'homecoming' && !kIsWeb) {
+          _sit.start();
+        } else {
+          _sit.stop();
+        }
       case 'text':
         setState(() {
           if (_msgs.isEmpty || _msgs.last.fromMe || _msgs.last.future) {
@@ -156,6 +164,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _sit.stop();
     _sub?.cancel();
     _conn?.close();
     _player.dispose();

@@ -86,6 +86,29 @@ def index_cmd(root: Path = typer.Argument(Path("data"))):
     rprint(f"寫入 {n} 筆到 {out}")
 
 
+@app.command("poj-draft")
+def poj_draft(
+    root: Path = typer.Argument(Path("data")),
+    ollama: str = typer.Option("", help="跑 Taigi 翻譯模型的 Ollama 網址，例 http://127.0.0.1:11434；空白就只產生空的白話字欄"),
+    model: str = typer.Option("taigi-translator"),
+):
+    """逐字稿 → 白話字草稿 TSV（work/poj/），給家人邊聽邊校正。"""
+    from . import poj
+
+    for p in poj.draft(root, ollama or None, model):
+        rprint(f"[green]草稿[/] {p.relative_to(root)}")
+    rprint("用試算表或文字編輯器打開 TSV，邊聽邊改 poj 欄，改好的那行 checked 填 1。")
+
+
+@app.command("poj-export")
+def poj_export(root: Path = typer.Argument(Path("data")), speaker: str = "ama"):
+    """校正過的段落 → GPT-SoVITS 訓練清單 work/tts_train.list。"""
+    from . import poj
+
+    out, n, skipped = poj.export(root, speaker)
+    rprint(f"收錄 {n} 段，略過 {skipped} 段（未校正或長度不在 1 到 15 秒），清單：{out}")
+
+
 @app.command("interview")
 def interview_cmd(
     topic: str = typer.Option(None, help="主題 id 或名稱，不給就列出全部主題"),
