@@ -1,0 +1,33 @@
+# 複製到 data/config.yaml。所有欄位都可省略。
+user_name: 阿融                  # 沒登入時阿嬤怎麼叫你
+llm: claude                      # echo（測試）/ claude
+geocoder: nominatim
+geocoder_contact: you@example.com
+
+# 素材放 Google Drive，見 docs/google-drive.md
+drive:
+  enabled: false
+  folder_id: ""
+  service_account: service_account.json
+  poll_seconds: 300
+
+# 家人身分，見 docs/google-drive.md
+auth:
+  enabled: false
+  google_client_ids: []
+  family: {}
+
+# 語音，見 docs/research/voice.md
+stt: none                        # none / whisper（預設模型 Breeze-ASR-26）
+tts: none                        # none / taigi / gptsovits
+tts_url: http://127.0.0.1:5557   # taigi：GPT-SoVITS-TW 的 webui 伺服器
+translator_url: ""               # Ollama，跑 Taigi-Llama-2-Translator（華語→台語白話字）
+tts_ref: audio/story/20261018_阿公熟似_01.wav   # 3 到 10 秒、情緒平穩的一段
+tts_ref_text: ""
+
+# 影像，見 docs/research/vision.md
+livetalking_url: ""              # 即時嘴型（需要 NVIDIA GPU）
+comfy_url: ""                    # ComfyUI：合照好版、待機影片
+
+plugins:
+  enabled: [weather-tw]

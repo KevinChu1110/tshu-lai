@@ -27,6 +27,7 @@ LAYOUT: dict[str, tuple[str, float | None, str]] = {
     "photo/old": ("老照片", None, "張"),
     "future": ("給未來的留言", None, "則"),
     "notes": ("人物表、作息表、log", None, "份"),
+    "trips": ("家人出去玩的照片", None, "張"),
 }
 
 # 20261018_阿公熟似_01.m4a  或  future_冠融_結婚.m4a

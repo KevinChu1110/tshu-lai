@@ -56,6 +56,13 @@ CREATE TABLE IF NOT EXISTS facts (
   text TEXT NOT NULL,              -- 對話中學到的新事實，如「冠融最近工作足忝」
   expires TEXT
 );
+CREATE TABLE IF NOT EXISTS trips (
+  key TEXT PRIMARY KEY,            -- who:start
+  who TEXT, start TEXT, "end" TEXT,
+  title TEXT, places TEXT, lat REAL, lng REAL,
+  photos TEXT,                     -- JSON array，相對素材根目錄
+  told INTEGER DEFAULT 0           -- 數位阿嬤提過沒
+);
 CREATE TABLE IF NOT EXISTS future_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   for_whom TEXT, trigger TEXT NOT NULL,   -- 日期 YYYY-MM-DD 或 manual:<key>
@@ -71,7 +78,7 @@ def _now() -> str:
 class MemoryStore:
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(path)
+        self.conn = sqlite3.connect(path, check_same_thread=False)  # 背景同步執行緒也會寫；寫入都很短，用 SQLite 自己的鎖
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
 
@@ -145,3 +152,51 @@ class MemoryStore:
     def todays_events(self, day: str, unmentioned_only: bool = True) -> list[str]:
         sql = "SELECT text FROM life_events WHERE day = ?" + (" AND mentioned = 0" if unmentioned_only else "")
         return [r["text"] for r in self.conn.execute(sql, (day,)).fetchall()]
+
+    # --- trips -----------------------------------------------------------
+    def upsert_trips(self, trips: list[dict]) -> list[dict]:
+        """寫入旅行，回傳新出現的那幾趟。"""
+        new = []
+        with self.conn:
+            for t in trips:
+                key = f"{t['who']}:{t['start']}"
+                exists = self.conn.execute("SELECT 1 FROM trips WHERE key = ?", (key,)).fetchone()
+                self.conn.execute(
+                    "INSERT INTO trips(key, who, start, \"end\", title, places, lat, lng, photos) VALUES (?,?,?,?,?,?,?,?,?)"
+                    " ON CONFLICT(key) DO UPDATE SET \"end\"=excluded.\"end\", title=excluded.title, places=excluded.places,"
+                    " lat=excluded.lat, lng=excluded.lng, photos=excluded.photos",
+                    (key, t["who"], t["start"], t["end"], t["title"], json.dumps(t["places"], ensure_ascii=False),
+                     t["lat"], t["lng"], json.dumps(t["photos"], ensure_ascii=False)),
+                )
+                if not exists:
+                    new.append(t)
+        return new
+
+    def recent_trips(self, n: int = 10) -> list[dict]:
+        rows = self.conn.execute("SELECT * FROM trips ORDER BY \"end\" DESC LIMIT ?", (n,)).fetchall()
+        return [{**dict(r), "places": json.loads(r["places"]), "photos": json.loads(r["photos"])} for r in rows]
+
+    # --- future messages -----------------------------------------------
+    def sync_future_messages(self, files: list[tuple[str, str, str]]) -> None:
+        """files: (相對路徑, 給誰, 觸發) 。觸發是 MM-DD、YYYY-MM-DD 或 manual:<名稱>。"""
+        with self.conn:
+            for path, who, trig in files:
+                if not self.conn.execute("SELECT 1 FROM future_messages WHERE path = ?", (path,)).fetchone():
+                    self.conn.execute("INSERT INTO future_messages(for_whom, trigger, path) VALUES (?,?,?)", (who, trig, path))
+
+    def due_future_messages(self, today: str, who: str | None = None) -> list[dict]:
+        """今天該播的留言。MM-DD 每年播（生日），YYYY-MM-DD 播一次。"""
+        rows = self.conn.execute(
+            "SELECT * FROM future_messages WHERE (trigger = ? AND played_at IS NULL) OR trigger = ?",
+            (today, today[5:]),
+        ).fetchall()
+        out = [dict(r) for r in rows]
+        return [r for r in out if who is None or r["for_whom"] in (who, "全家")]
+
+    def manual_future_messages(self, who: str | None = None) -> list[dict]:
+        rows = self.conn.execute("SELECT * FROM future_messages WHERE trigger LIKE 'manual:%'").fetchall()
+        return [dict(r) for r in rows if who is None or r["for_whom"] in (who, "全家")]
+
+    def mark_played(self, msg_id: int) -> None:
+        with self.conn:
+            self.conn.execute("UPDATE future_messages SET played_at = ? WHERE id = ?", (_now(), msg_id))

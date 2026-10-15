@@ -1,0 +1,18 @@
+name: weather-tw
+version: 0.1.0
+description: 阿嬤家今天的天氣（Open-Meteo，免費免金鑰）。熱、冷、落雨都是她會念的話題。
+kind: [knowledge, trigger]
+languages: [nan-TW, zh-TW]
+server:
+  command: uv
+  args: [run, --with, "mcp>=2.3", python, server.py]
+  env:
+    TSHULAI_HOME_LAT: "23.5"
+    TSHULAI_HOME_LNG: "120.5"
+provides:
+  triggers:
+    - event: weather.rain_soon
+      description: 兩小時內會下雨，她會叫你帶傘
+  tools: [topics, poll_events, forecast]
+  topics: [天氣, 落雨, 寒熱]
+permissions: [network]
