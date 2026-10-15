@@ -1,0 +1,6 @@
+id: photo
+name: 合照
+description: 使用者開相機或分享照片進來。她會問要坐中間還是站旁邊，拍完評論。
+enter_on: ["camera.opened", "share.photo_received"]
+exit_on: ["camera.closed", "idle:3m"]
+topics: [pose_suggestion, photo_commentary]

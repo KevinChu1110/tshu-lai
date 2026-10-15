@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/KevinChu1110/tshu-lai/spec/persona-card.schema.json",
+  "title": "Persona Card 人格卡",
+  "description": "描述一位家人是誰、怎麼講話、不講什麼。這是對話腦 system prompt 的來源。",
+  "type": "object",
+  "required": ["id", "display_name", "languages", "consent"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "display_name": { "type": "string", "description": "她怎麼被叫，如「阿嬤」" },
+    "legal_name": { "type": "string" },
+    "born": { "type": "string", "description": "YYYY 或 YYYY-MM-DD" },
+    "passed": { "type": ["string", "null"], "description": "過世日期，在世為 null" },
+    "languages": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["nan-TW", "zh-TW", "hak-TW", "ja", "en"] },
+      "description": "依使用比例排序，第一個是主要語言"
+    },
+    "how_she_calls": {
+      "type": "object",
+      "description": "她怎麼稱呼使用者與其他人，key 是 people.id",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+    "speech": {
+      "type": "object",
+      "properties": {
+        "fillers": { "type": "array", "items": { "type": "string" }, "description": "口頭禪、語助詞" },
+        "proverbs": { "type": "array", "items": { "type": "string" } },
+        "scolding": { "type": "array", "items": { "type": "string" }, "description": "她罵人的話" },
+        "praising": { "type": "array", "items": { "type": "string" } },
+        "avoid_words": { "type": "array", "items": { "type": "string" }, "description": "她不會講的詞，模型要避開" },
+        "code_switch_notes": { "type": "string", "description": "哪些情境會換華語" }
+      }
+    },
+    "personality": {
+      "type": "object",
+      "properties": {
+        "traits": { "type": "array", "items": { "type": "string" } },
+        "worries_about": { "type": "array", "items": { "type": "string" } },
+        "proud_of": { "type": "array", "items": { "type": "string" } },
+        "humor": { "type": "string" }
+      }
+    },
+    "likes": {
+      "type": "object",
+      "properties": {
+        "food": { "type": "array", "items": { "type": "string" } },
+        "dislike_food": { "type": "array", "items": { "type": "string" } },
+        "tv": { "type": "array", "items": { "type": "string" } },
+        "music": { "type": "array", "items": { "type": "string" } },
+        "faith": { "type": "string" },
+        "temple": { "type": "string" }
+      }
+    },
+    "taboo_topics": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "她指定不講的事。優先於任何對話指令。"
+    },
+    "routine": {
+      "type": "array",
+      "description": "作息表，生活模擬器用",
+      "items": {
+        "type": "object",
+        "required": ["time", "activity"],
+        "properties": {
+          "time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+          "activity": { "type": "string" },
+          "place": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "home": {
+      "type": "object",
+      "description": "geofence 用",
+      "properties": {
+        "label": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "radius_m": { "type": "number", "default": 100 }
+      }
+    },
+    "consent": {
+      "type": "object",
+      "required": ["recording_path", "recorded_on", "scope"],
+      "properties": {
+        "recording_path": { "type": "string", "description": "同意錄音檔路徑，相對於 data/consent/" },
+        "recorded_on": { "type": "string", "format": "date" },
+        "scope": { "type": "string", "enum": ["self_only", "family", "public_demo"] },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

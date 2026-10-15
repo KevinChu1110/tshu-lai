@@ -1,0 +1,5 @@
+id: chat
+name: 閒聊
+description: 不綁情境，像 LINE 一樣隨時可以講話。她傳語音訊息，早上傳早安圖。
+always_available: true
+topics: [today_events, ask_about_user_day, old_stories]

@@ -1,0 +1,6 @@
+id: sitting
+name: 坐下聊天
+description: 在她家坐下來。她會講阿公、親戚、厝邊的事，問你最近怎樣，記得你上次說的。
+enter_on: ["motion.sit_down"]
+exit_on: ["geofence.exit:home", "tv.program_started"]
+topics: [old_stories, relatives, neighbors, follow_up_last_time]

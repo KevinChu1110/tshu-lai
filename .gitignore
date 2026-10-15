@@ -1,0 +1,27 @@
+# data: never commit a real person's recordings
+data/
+*.wav
+*.m4a
+*.mp3
+*.mp4
+*.mov
+*.pt
+*.safetensors
+
+__pycache__/
+*.pyc
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# flutter
+app/build/
+app/.dart_tool/
+app/.flutter-plugins*
+app/ios/Pods/
+
+.DS_Store

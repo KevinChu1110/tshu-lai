@@ -1,0 +1,6 @@
+id: tv
+name: 看電視
+description: 一起看電視。她會問劇情、罵壞人、評論演員。
+enter_on: ["tv.program_started", "user.say:看電視"]
+exit_on: ["tv.program_ended", "geofence.exit:home"]
+topics: [drama_plot, actors, commentary]

@@ -1,0 +1,6 @@
+id: phone_help
+name: 手機卡住
+description: 她滑手機遇到問題來問你。LINE 貼圖怎麼傳、照片怎麼存、字怎麼變大。
+enter_on: ["simulator.phone_trouble"]
+exit_on: ["resolved", "idle:5m"]
+topics: [line_stickers, photos, font_size, scam_calls]

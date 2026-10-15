@@ -1,0 +1,7 @@
+id: homecoming
+name: 進門
+description: 使用者回到她家。她在門口或客廳迎接，問吃飽沒、怎麼這麼晚。
+enter_on: ["geofence.enter:home"]
+exit_on: ["motion.sit_down", "idle:10m"]
+greeting_pool: greeting.homecoming
+topics: [ask_eaten, ask_trip, today_events]
