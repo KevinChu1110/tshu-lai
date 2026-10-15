@@ -8,6 +8,20 @@
 阿嬤家的平板 ──/frame?key=…（不用登入）──▶ 家用主機引擎
 ```
 
+## 快速設定（一個指令）
+
+步驟一、二、四可以全部自動做完，只剩步驟三要在網頁點：
+
+```bash
+gcloud auth login --enable-gdrive-access          # 開瀏覽器，用你自己的 Google 帳號登入一次
+scripts/setup-google.sh --family 家人1@gmail.com,家人2@gmail.com
+cd engine && uv sync --extra drive && uv run tshulai-engine drive check
+```
+
+腳本會建 Cloud 專案、啟用 Drive API、建 service account 並下載金鑰，在你的 Drive 建好「厝內-阿嬤」整套資料夾，
+分享給 service account（檢視者）和家人（編輯者），最後寫好 `data/config.yaml`。重跑不會重複建立。
+想手動做或看懂每一步，往下看。
+
 ## 為什麼這樣設計
 
 | 選項 | 問題 |
