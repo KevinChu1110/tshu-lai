@@ -30,7 +30,7 @@ ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | he
 echo "使用帳號：$ACCOUNT"
 
 if [[ -z "$PROJECT" ]]; then
-  PROJECT="tshulai-$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 6)"
+  PROJECT="tshulai-$(python3 -c 'import secrets,string; print("".join(secrets.choice(string.ascii_lowercase+string.digits) for _ in range(6)))')"
   echo "建立 Cloud 專案 $PROJECT"
   gcloud projects create "$PROJECT" --name="tshulai" --quiet
 fi
