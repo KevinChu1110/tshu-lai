@@ -59,6 +59,11 @@ class _ChatScreenState extends State<ChatScreen> {
   void _connect() {
     _sub?.cancel();
     _conn?.close();
+    _conn = null;
+    if (widget.client.auth.configured && !widget.client.auth.signedIn) {
+      setState(() => _status = '請先到「設定」用 Google 帳號登入');
+      return;
+    }
     try {
       final c = widget.client.connect();
       _conn = c;
@@ -83,6 +88,8 @@ class _ChatScreenState extends State<ChatScreen> {
         for (final e in widget.settings.takePendingEvents()) {
           _conn!.event(e);
         }
+      case 'error':
+        setState(() => _status = m['code'] == 401 ? '引擎不認得這個帳號：${m['message']}' : '${m['message']}');
       case 'scene':
         setState(() => _sceneName = m['name'] as String);
         // 進門之後才開始看你有沒有坐下來；換到別的情境就停

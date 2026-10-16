@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../auth.dart';
 import '../engine_client.dart';
 import '../presence/presence.dart';
 import '../settings.dart';
+import '../web_sign_in_button.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.settings, required this.auth, required this.client, required this.onFrameMode});
@@ -78,6 +80,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             )
           else if (auth.canSignInHere)
             FilledButton.icon(onPressed: auth.signIn, icon: const Icon(Icons.login), label: const Text('用 Google 登入'))
+          else if (kIsWeb && auth.configured)
+            Align(alignment: Alignment.centerLeft, child: webSignInButton())
           else
             const Text('這個平台還不能直接登入，引擎若關閉身分驗證仍可使用。'),
           if (auth.error != null) Text(auth.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),

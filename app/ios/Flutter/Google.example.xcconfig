@@ -1,0 +1,2 @@
+// 複製成 Google.xcconfig，填 iOS OAuth client ID 反過來寫
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.你的iOS用戶端ID前段

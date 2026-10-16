@@ -37,7 +37,8 @@ def main(argv: list[str] | None = None) -> None:
 
         host = getattr(args, "host", "127.0.0.1")
         port = getattr(args, "port", 8765)
-        uvicorn.run("tshulai.main:app", host=host, port=port)
+        # 不記請求網址：阿嬤看板的鑰匙在網址裡
+        uvicorn.run("tshulai.main:app", host=host, port=port, access_log=os.environ.get("TSHULAI_ACCESS_LOG") == "1")
         return
 
     from .config import load_config

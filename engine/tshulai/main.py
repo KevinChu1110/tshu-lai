@@ -1,6 +1,6 @@
 """厝內 Persona Engine：HTTP + WebSocket。
 
-WebSocket /ws?token=<Google ID token>
+WebSocket /ws（第一則訊息 {"type":"auth","token":"<Google ID token>"}，auth 關閉時可省略）
   client -> engine
     {"type": "event", "name": "geofence.enter:home"}
     {"type": "say", "text": "阿嬤我轉來矣"}
@@ -421,14 +421,23 @@ def tts_audio(key: str):
 
 
 @app.websocket("/ws")
-async def ws(sock: WebSocket, token: str | None = Query(None)):
+async def ws(sock: WebSocket):
+    """登入憑證放第一則訊息 {"type":"auth","token":...}，不放網址（網址會進伺服器紀錄）。"""
     assert engine
+    await sock.accept()
+    token = None
+    if engine.cfg.auth.enabled:
+        try:
+            first = await asyncio.wait_for(sock.receive_json(), timeout=15)
+            token = first.get("token") if first.get("type") == "auth" else None
+        except (asyncio.TimeoutError, WebSocketDisconnect, ValueError):
+            pass
     try:
         who = verify(token, engine.cfg.auth)
     except AuthError as e:
-        await sock.close(code=4401, reason=str(e)[:120])
+        await sock.send_json({"type": "error", "code": 401, "message": str(e)})
+        await sock.close(code=4401)
         return
-    await sock.accept()
     voice = False
     conn = engine.connections[sock] = {"who": who, "voice": False}
     import time
@@ -503,7 +512,7 @@ def run():
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     uvicorn.run("tshulai.main:app", host=os.environ.get("TSHULAI_HOST", "127.0.0.1"),
-                port=int(os.environ.get("TSHULAI_PORT", "8765")))
+                port=int(os.environ.get("TSHULAI_PORT", "8765")), access_log=False)
 
 
 if __name__ == "__main__":

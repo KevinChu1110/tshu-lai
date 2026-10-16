@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'google_config.dart';
+
 /// 家人身分：只用 Google 帳號登入取 ID token，不要任何 Drive 權限。
 /// 素材權限由共享 Drive 資料夾管，引擎用 service account 讀。
 class FamilyAuth extends ChangeNotifier {
@@ -16,10 +18,18 @@ class FamilyAuth extends ChangeNotifier {
   bool get signedIn => _account != null;
   bool get canSignInHere => _ready && GoogleSignIn.instance.supportsAuthenticate();
 
+  /// 有帶入家庭的 client ID 才算設定好；沒設定時 app 仍能在引擎關掉 auth 的情況下使用。
+  bool get configured => googleWebClientId.isNotEmpty || _serverClientId.isNotEmpty;
+  String _serverClientId = '';
+
   Future<void> init({String serverClientId = ''}) async {
+    _serverClientId = serverClientId.isNotEmpty ? serverClientId : googleWebClientId;
+    final ios = defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS;
     try {
       await GoogleSignIn.instance.initialize(
-        serverClientId: serverClientId.isEmpty || kIsWeb ? null : serverClientId,
+        // 網頁用 Web client；iOS 用 iOS client；Android 不給 clientId，靠 serverClientId 拿到 aud=Web client 的 ID token
+        clientId: kIsWeb ? _nullIfEmpty(googleWebClientId) : (ios && !kIsWeb ? _nullIfEmpty(googleIosClientId) : null),
+        serverClientId: kIsWeb ? null : _nullIfEmpty(_serverClientId),
       );
       _sub = GoogleSignIn.instance.authenticationEvents.listen((e) {
         _account = switch (e) {
@@ -32,7 +42,9 @@ class FamilyAuth extends ChangeNotifier {
         notifyListeners();
       });
       _ready = true;
-      await GoogleSignIn.instance.attemptLightweightAuthentication();
+      // 不 await：網頁版會一直等 One Tap，等下去 app 就畫不出來。結果走 authenticationEvents。
+      unawaited(Future(() async => GoogleSignIn.instance.attemptLightweightAuthentication())
+          .catchError((Object _) => null));
     } catch (e) {
       // 沒設定 OAuth client（開發模式）時會到這裡；引擎關掉 auth 也能用
       error = '$e';
@@ -40,6 +52,8 @@ class FamilyAuth extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  static String? _nullIfEmpty(String s) => s.isEmpty ? null : s;
 
   Future<void> signIn() async {
     error = null;

@@ -25,3 +25,7 @@ app/.flutter-plugins*
 app/ios/Pods/
 
 .DS_Store
+
+# 家庭專屬的 Google OAuth client 設定
+app/config/google.json
+app/ios/Flutter/Google.xcconfig

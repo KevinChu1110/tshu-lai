@@ -62,10 +62,12 @@ cd engine && uv sync --extra drive && uv run tshulai-engine drive check
 
 這只用來讓 app 拿到「你是誰」（openid、email），不要任何 Drive 權限，所以不需要審核。
 
-1. 同一個專案，「API 和服務 → OAuth 同意畫面」：User type 選「外部」，填 app 名稱「厝內」、你的 email。
-   範圍不用加。發布狀態可以直接「發布」，因為只用到非敏感範圍。
+1. 同一個專案，「Google Auth Platform」：目標對象選「外部」，填 app 名稱「厝內」、你的 email。
+   範圍不用加。「品牌」頁填首頁與隱私權政策連結（可用本 repo 的 PRIVACY.md），授權網域加 `github.com`，
+   然後到「目標對象」按「發布應用程式」。只用到非敏感範圍、沒有上傳標誌，不需要送審。
 2. 「憑證 → 建立憑證 → OAuth 用戶端 ID」建這幾個：
    - **網頁應用程式**：這個的 client ID 是引擎驗證用的 audience，也是 Android app 要填的 Web client ID。
+     「已授權的 JavaScript 來源」加 `http://localhost:8765`（網頁版登入用）。
    - **iOS**：bundle ID `io.github.kevinchu1110.tshulai`（自己 fork 的請改成你的）。
    - **Android**：package `io.github.kevinchu1110.tshulai`，填 debug 與 release 的 SHA-1。
 

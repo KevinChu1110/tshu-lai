@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'google_config.dart';
+
 /// App 設定。存在本機，換手機要重設。
 class AppSettings extends ChangeNotifier {
   AppSettings._(this._prefs);
@@ -20,7 +22,7 @@ class AppSettings extends ChangeNotifier {
   }
 
   /// Google OAuth Web client ID（引擎用它驗 ID token 的 audience）。Android 需要它當 serverClientId。
-  String get googleServerClientId => _prefs.getString('googleServerClientId') ?? '';
+  String get googleServerClientId => _prefs.getString('googleServerClientId') ?? googleWebClientId;
   set googleServerClientId(String v) {
     _prefs.setString('googleServerClientId', v.trim());
     notifyListeners();

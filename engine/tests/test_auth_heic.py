@@ -53,12 +53,13 @@ def test_http_and_ws_enforce_auth(fake_google, isolated_data):
         me = client.get("/me", headers={"Authorization": f"Bearer {good}"}).json()
         assert me["called"] == "阿融" and me["frame_key"]
         assert client.get(f"/trips?key={me['frame_key']}").status_code == 200    # 看板免登入
-        with client.websocket_connect(f"/ws?token={good}") as ws:
+        with client.websocket_connect("/ws") as ws:
+            ws.send_json({"type": "auth", "token": good})
             assert ws.receive_json()["member"] == "阿融"
-        from starlette.websockets import WebSocketDisconnect
-        with pytest.raises(WebSocketDisconnect):
-            with client.websocket_connect("/ws") as ws:
-                ws.receive_json()
+        with client.websocket_connect("/ws") as ws:
+            ws.send_json({"type": "auth", "token": "stranger@gmail.com|web-client|1"})
+            err = ws.receive_json()
+            assert err["type"] == "error" and err["code"] == 401
 
 
 def test_heic_gps(tmp_path: Path):

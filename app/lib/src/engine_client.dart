@@ -138,12 +138,11 @@ class EngineClient {
 
   ChatConnection connect() {
     final base = Uri.parse(settings.engineUrl);
-    final ws = base.replace(
-      scheme: base.scheme == 'https' ? 'wss' : 'ws',
-      path: '/ws',
-      queryParameters: {if (auth.idToken != null) 'token': auth.idToken!},
-    );
-    return ChatConnection(WebSocketChannel.connect(ws));
+    final ws = base.replace(scheme: base.scheme == 'https' ? 'wss' : 'ws', path: '/ws');
+    final conn = ChatConnection(WebSocketChannel.connect(ws));
+    // 登入憑證放第一則訊息，不放網址（網址會留在伺服器紀錄）
+    conn._send({'type': 'auth', 'token': auth.idToken});
+    return conn;
   }
 }
 
@@ -151,7 +150,10 @@ class ChatConnection {
   ChatConnection(this.channel)
       : messages = channel.stream
             .map((e) => jsonDecode(e as String) as Map<String, dynamic>)
-            .asBroadcastStream();
+            .asBroadcastStream() {
+    // 連不上（引擎沒開、還沒登入）時錯誤會走 stream 的 onError；這裡吃掉 ready 的錯，避免變成未處理例外
+    channel.ready.catchError((Object _) {});
+  }
 
   final WebSocketChannel channel;
   final Stream<Map<String, dynamic>> messages;
